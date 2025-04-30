@@ -1,34 +1,31 @@
 #!/bin/bash
 
 if [ "$#" -ne 2 ]; then
-    echo "Нужно 2 аргумента: входная и выходная папки"
+    echo "Нужно 2 аргумента: входная и выходная папки" >&2
     exit 1
 fi
 
-input_dir="$1"
-output_dir="$2"
+input_dir=$(realpath "$1")
+output_dir=$(realpath "$2")
 
-echo "Входная папка: $input_dir"
-echo "Выходная папка: $output_dir"
+echo "Входная папка: $input_dir" >&1
+echo "Выходная папка: $output_dir" >&1
 
 if [ ! -d "$input_dir" ]; then
-    echo "Ошибка: входная папка не существует!"
+    echo "Ошибка: входная папка не существует!" >&2
     exit 1
 fi
 
-mkdir -p "$output_dir"
-echo "Создана папка: $output_dir"
+mkdir -p "$output_dir" || {
+    echo "Ошибка создания папки" >&2
+    exit 1
+}
 
 generate_unique_name() {
-    local base_path="$1"
-    local name="$2"
-    local ext="$3"
-    local counter=1
-    
+    local base_path="$1" name="$2" ext="$3" counter=1
     while [ -f "${base_path}/${name}_${counter}.${ext}" ]; do
         ((counter++))
     done
-    
     echo "${name}_${counter}.${ext}"
 }
 
@@ -41,17 +38,14 @@ for file in "$input_dir"/*.txt; do
 
     if [ -f "$output_dir/$filename" ]; then
         if cmp -s "$file" "$output_dir/$filename"; then
-            echo "Файл '$filename' уже существует и идентичен - пропускаем"
             continue
         else
             new_name=$(generate_unique_name "$output_dir" "$name" "$ext")
-            cp "$file" "$output_dir/$new_name"
-            echo "Скопирован (дубликат): $new_name"
+            cp "$file" "$output_dir/$new_name" || exit 1
         fi
     else
-        cp "$file" "$output_dir/"
-        echo "Скопирован: $filename"
+        cp "$file" "$output_dir/" || exit 1
     fi
 done
 
-echo "Готово! Всего файлов: $(ls "$output_dir" | wc -l)"
+exit 0
